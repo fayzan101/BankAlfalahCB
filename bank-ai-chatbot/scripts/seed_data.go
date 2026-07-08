@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"bank-ai-chatbot/internal/security"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,10 +30,15 @@ func main() {
 	userID := uuid.New()
 	email := fmt.Sprintf("demo+%s@bank.local", userID.String()[:8])
 
+	hash, err := security.HashPassword("DemoPass123")
+	if err != nil {
+		log.Fatalf("hash password: %v", err)
+	}
+
 	_, err = pool.Exec(ctx, `
 		INSERT INTO users (id, full_name, email, password_hash)
 		VALUES ($1, $2, $3, $4)
-	`, userID, "Demo Customer", email, "$2a$10$demo.hash.replace.in.auth.phase")
+	`, userID, "Demo Customer", email, hash)
 	if err != nil {
 		log.Fatalf("seed users failed: %v", err)
 	}
@@ -48,5 +54,5 @@ func main() {
 		log.Fatalf("seed transactions failed: %v", err)
 	}
 
-	log.Printf("seed complete: user_id=%s email=%s", userID.String(), email)
+	log.Printf("seed complete: user_id=%s email=%s password=DemoPass123", userID.String(), email)
 }

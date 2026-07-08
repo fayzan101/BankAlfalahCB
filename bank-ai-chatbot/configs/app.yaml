@@ -1,0 +1,8 @@
+server:
+  port: 8080
+  read_timeout: 15s
+  write_timeout: 15s
+
+jwt:
+  secret: change-me-in-production
+  expiry: 24h
