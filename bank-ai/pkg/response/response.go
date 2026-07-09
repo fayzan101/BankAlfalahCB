@@ -46,6 +46,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusConflict
 	case errors.Is(err, apperrors.ErrBadRequest):
 		status = http.StatusBadRequest
+	case errors.Is(err, apperrors.ErrServiceUnavailable):
+		status = http.StatusServiceUnavailable
 	}
 
 	w.Header().Set("Content-Type", "application/json")

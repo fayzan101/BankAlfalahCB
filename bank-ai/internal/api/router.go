@@ -14,6 +14,7 @@ type Dependencies struct {
 	Health *handlers.HealthHandler
 	Auth   *handlers.AuthHandler
 	Me     *handlers.MeHandler
+	Chat   *handlers.ChatHandler
 	AuthMW *middleware.AuthMiddleware
 }
 
@@ -33,6 +34,10 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(deps.AuthMW.RequireAuth)
 		r.Get("/me", deps.Me.Me)
+
+		r.Post("/chat", deps.Chat.CreateChat)
+		r.Post("/chat/{chat_id}/message", deps.Chat.SendMessage)
+		r.Get("/chat/{chat_id}/history", deps.Chat.GetHistory)
 	})
 
 	return r
@@ -41,12 +46,14 @@ func NewRouter(deps Dependencies) http.Handler {
 func BuildDependencies(
 	health *handlers.HealthHandler,
 	authService *services.AuthService,
+	chatService *services.ChatService,
 	authMW *middleware.AuthMiddleware,
 ) Dependencies {
 	return Dependencies{
 		Health: health,
 		Auth:   handlers.NewAuthHandler(authService),
 		Me:     handlers.NewMeHandler(authService),
+		Chat:   handlers.NewChatHandler(chatService),
 		AuthMW: authMW,
 	}
 }

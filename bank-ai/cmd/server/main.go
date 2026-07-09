@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"bank-ai-chatbot/internal/ai"
 	"bank-ai-chatbot/internal/api"
 	"bank-ai-chatbot/internal/api/handlers"
 	"bank-ai-chatbot/internal/api/middleware"
@@ -45,12 +46,32 @@ func main() {
 	defer db.Close()
 
 	userRepo := postgres.NewUserRepository(db)
+	chatRepo := postgres.NewChatRepository(db)
+	messageRepo := postgres.NewMessageRepository(db)
+
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.Expiry)
 	authService := services.NewAuthService(userRepo, tokenManager)
 	authMW := middleware.NewAuthMiddleware(tokenManager)
 
+	llmEnabled := cfg.OpenAI.APIKey != ""
+	var llmService *services.LLMService
+	if llmEnabled {
+		openaiClient := ai.NewClient(
+			cfg.OpenAI.APIKey,
+			cfg.OpenAI.Model,
+			cfg.OpenAI.MaxTokens,
+			cfg.OpenAI.Timeout,
+		)
+		llmService = services.NewLLMService(openaiClient, cfg.OpenAI.MaxHistoryMessages)
+		log.Printf("openai integration enabled (model=%s)", cfg.OpenAI.Model)
+	} else {
+		log.Println("OPENAI_API_KEY not set; chat messages will return service unavailable")
+	}
+
+	chatService := services.NewChatService(chatRepo, messageRepo, llmService, llmEnabled)
+
 	healthHandler := handlers.NewHealthHandler(db.Pool)
-	deps := api.BuildDependencies(healthHandler, authService, authMW)
+	deps := api.BuildDependencies(healthHandler, authService, chatService, authMW)
 	router := api.NewRouter(deps)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -58,7 +79,7 @@ func main() {
 		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout + cfg.OpenAI.Timeout,
 	}
 
 	go func() {
