@@ -6,7 +6,7 @@ Banking AI chatbot backend (Go + PostgreSQL + OpenAI).
 
 - Go 1.22+
 - PostgreSQL
-- OpenAI API key (for chat assistant responses)
+- OpenAI API key (for general chat assistant responses; banking queries work without it)
 - `psql` CLI (for migrations)
 
 ## Quick Start
@@ -53,8 +53,10 @@ go run ./cmd/server/main.go
 | POST | `/auth/login` | No | Login and get JWT |
 | GET | `/me` | JWT | Current user profile |
 | POST | `/chat` | JWT | Create a new chat |
-| POST | `/chat/{chat_id}/message` | JWT | Send message, get AI reply |
+| POST | `/chat/{chat_id}/message` | JWT | Send message, get AI or banking reply |
 | GET | `/chat/{chat_id}/history` | JWT | Fetch chat message history |
+| GET | `/banking/balance` | JWT | Get account balance |
+| GET | `/banking/transactions?limit=10` | JWT | Get recent transactions |
 
 ## Example chat flow
 
@@ -72,11 +74,21 @@ $chat = curl -s -X POST http://localhost:8080/chat `
   -d '{"title":"Account help"}' | ConvertFrom-Json
 $chatId = $chat.data.chat.id
 
-# Send message
+# Send general message
 curl -s -X POST "http://localhost:8080/chat/$chatId/message" `
   -H "Authorization: Bearer $token" `
   -H "Content-Type: application/json" `
   -d '{"content":"What services do you offer?"}'
+
+# Send banking intent (works without OpenAI)
+curl -s -X POST "http://localhost:8080/chat/$chatId/message" `
+  -H "Authorization: Bearer $token" `
+  -H "Content-Type: application/json" `
+  -d '{"content":"What is my balance?"}'
+
+# Direct banking APIs
+curl -s http://localhost:8080/banking/balance -H "Authorization: Bearer $token"
+curl -s "http://localhost:8080/banking/transactions?limit=5" -H "Authorization: Bearer $token"
 
 # Get history
 curl -s "http://localhost:8080/chat/$chatId/history" `
