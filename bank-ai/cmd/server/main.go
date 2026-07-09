@@ -48,9 +48,11 @@ func main() {
 	userRepo := postgres.NewUserRepository(db)
 	chatRepo := postgres.NewChatRepository(db)
 	messageRepo := postgres.NewMessageRepository(db)
+	transactionRepo := postgres.NewTransactionRepository(db)
 
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.Expiry)
 	authService := services.NewAuthService(userRepo, tokenManager)
+	bankingService := services.NewBankingService(transactionRepo)
 	authMW := middleware.NewAuthMiddleware(tokenManager)
 
 	llmEnabled := cfg.OpenAI.APIKey != ""
@@ -68,10 +70,10 @@ func main() {
 		log.Println("OPENAI_API_KEY not set; chat messages will return service unavailable")
 	}
 
-	chatService := services.NewChatService(chatRepo, messageRepo, llmService, llmEnabled)
+	chatService := services.NewChatService(chatRepo, messageRepo, bankingService, llmService, llmEnabled)
 
 	healthHandler := handlers.NewHealthHandler(db.Pool)
-	deps := api.BuildDependencies(healthHandler, authService, chatService, authMW)
+	deps := api.BuildDependencies(healthHandler, authService, chatService, bankingService, authMW)
 	router := api.NewRouter(deps)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

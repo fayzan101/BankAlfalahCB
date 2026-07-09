@@ -20,16 +20,24 @@ const (
 )
 
 type ChatService struct {
-	chats     *postgres.ChatRepository
-	messages  *postgres.MessageRepository
-	llm       *LLMService
+	chats      *postgres.ChatRepository
+	messages   *postgres.MessageRepository
+	banking    *BankingService
+	llm        *LLMService
 	llmEnabled bool
 }
 
-func NewChatService(chats *postgres.ChatRepository, messages *postgres.MessageRepository, llm *LLMService, llmEnabled bool) *ChatService {
+func NewChatService(
+	chats *postgres.ChatRepository,
+	messages *postgres.MessageRepository,
+	banking *BankingService,
+	llm *LLMService,
+	llmEnabled bool,
+) *ChatService {
 	return &ChatService{
 		chats:      chats,
 		messages:   messages,
+		banking:    banking,
 		llm:        llm,
 		llmEnabled: llmEnabled,
 	}
@@ -82,18 +90,31 @@ func (s *ChatService) SendMessage(ctx context.Context, userID, chatID uuid.UUID,
 		return nil, apperrors.Internal("failed to save user message", err)
 	}
 
-	if !s.llmEnabled || s.llm == nil {
-		return nil, apperrors.ServiceUnavailable("assistant is temporarily unavailable")
+	intent := DetectIntent(content)
+	var reply string
+	var err error
+
+	switch intent {
+	case IntentBalance, IntentTransactions:
+		reply, err = s.banking.ReplyForIntent(ctx, userID, intent)
+	default:
+		if !s.llmEnabled || s.llm == nil {
+			return nil, apperrors.ServiceUnavailable("assistant is temporarily unavailable")
+		}
+
+		history, historyErr := s.messages.ListByChatID(ctx, chatID)
+		if historyErr != nil {
+			return nil, apperrors.Internal("failed to load chat history", historyErr)
+		}
+
+		reply, err = s.llm.GenerateReply(ctx, history)
 	}
 
-	history, err := s.messages.ListByChatID(ctx, chatID)
 	if err != nil {
-		return nil, apperrors.Internal("failed to load chat history", err)
-	}
-
-	reply, err := s.llm.GenerateReply(ctx, history)
-	if err != nil {
-		return nil, apperrors.ServiceUnavailable("assistant is temporarily unavailable")
+		if intent == IntentGeneral {
+			return nil, apperrors.ServiceUnavailable("assistant is temporarily unavailable")
+		}
+		return nil, err
 	}
 
 	assistantMessage := &models.Message{

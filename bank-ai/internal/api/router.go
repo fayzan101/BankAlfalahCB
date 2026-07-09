@@ -11,11 +11,12 @@ import (
 )
 
 type Dependencies struct {
-	Health *handlers.HealthHandler
-	Auth   *handlers.AuthHandler
-	Me     *handlers.MeHandler
-	Chat   *handlers.ChatHandler
-	AuthMW *middleware.AuthMiddleware
+	Health  *handlers.HealthHandler
+	Auth    *handlers.AuthHandler
+	Me      *handlers.MeHandler
+	Chat    *handlers.ChatHandler
+	Banking *handlers.BankingHandler
+	AuthMW  *middleware.AuthMiddleware
 }
 
 func NewRouter(deps Dependencies) http.Handler {
@@ -38,6 +39,9 @@ func NewRouter(deps Dependencies) http.Handler {
 		r.Post("/chat", deps.Chat.CreateChat)
 		r.Post("/chat/{chat_id}/message", deps.Chat.SendMessage)
 		r.Get("/chat/{chat_id}/history", deps.Chat.GetHistory)
+
+		r.Get("/banking/balance", deps.Banking.GetBalance)
+		r.Get("/banking/transactions", deps.Banking.GetTransactions)
 	})
 
 	return r
@@ -47,13 +51,15 @@ func BuildDependencies(
 	health *handlers.HealthHandler,
 	authService *services.AuthService,
 	chatService *services.ChatService,
+	bankingService *services.BankingService,
 	authMW *middleware.AuthMiddleware,
 ) Dependencies {
 	return Dependencies{
-		Health: health,
-		Auth:   handlers.NewAuthHandler(authService),
-		Me:     handlers.NewMeHandler(authService),
-		Chat:   handlers.NewChatHandler(chatService),
-		AuthMW: authMW,
+		Health:  health,
+		Auth:    handlers.NewAuthHandler(authService),
+		Me:      handlers.NewMeHandler(authService),
+		Chat:    handlers.NewChatHandler(chatService),
+		Banking: handlers.NewBankingHandler(bankingService),
+		AuthMW:  authMW,
 	}
 }
