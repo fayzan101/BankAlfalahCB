@@ -9,8 +9,9 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig `yaml:"server"`
-	JWT      JWTConfig    `yaml:"jwt"`
+	Server   ServerConfig   `yaml:"server"`
+	JWT      JWTConfig      `yaml:"jwt"`
+	OpenAI   OpenAIConfig   `yaml:"openai"`
 	Database DatabaseConfig
 }
 
@@ -27,6 +28,14 @@ type JWTConfig struct {
 
 type DatabaseConfig struct {
 	URL string
+}
+
+type OpenAIConfig struct {
+	APIKey           string        `yaml:"api_key"`
+	Model            string        `yaml:"model"`
+	MaxTokens        int           `yaml:"max_tokens"`
+	Timeout          time.Duration `yaml:"timeout"`
+	MaxHistoryMessages int         `yaml:"max_history_messages"`
 }
 
 func Load(path string) (*Config, error) {
@@ -61,6 +70,13 @@ func Load(path string) (*Config, error) {
 
 	cfg.Database.URL = os.Getenv("DATABASE_URL")
 
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		cfg.OpenAI.APIKey = apiKey
+	}
+	if model := os.Getenv("OPENAI_MODEL"); model != "" {
+		cfg.OpenAI.Model = model
+	}
+
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8080
 	}
@@ -75,6 +91,19 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.JWT.Secret == "" {
 		return nil, fmt.Errorf("JWT secret is required (set jwt.secret in config or JWT_SECRET env)")
+	}
+
+	if cfg.OpenAI.Model == "" {
+		cfg.OpenAI.Model = "gpt-4o-mini"
+	}
+	if cfg.OpenAI.MaxTokens == 0 {
+		cfg.OpenAI.MaxTokens = 512
+	}
+	if cfg.OpenAI.Timeout == 0 {
+		cfg.OpenAI.Timeout = 30 * time.Second
+	}
+	if cfg.OpenAI.MaxHistoryMessages == 0 {
+		cfg.OpenAI.MaxHistoryMessages = 20
 	}
 
 	return &cfg, nil

@@ -6,12 +6,13 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("resource not found")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrConflict      = errors.New("resource already exists")
-	ErrBadRequest    = errors.New("bad request")
-	ErrInternal      = errors.New("internal server error")
+	ErrNotFound          = errors.New("resource not found")
+	ErrUnauthorized      = errors.New("unauthorized")
+	ErrForbidden         = errors.New("forbidden")
+	ErrConflict          = errors.New("resource already exists")
+	ErrBadRequest        = errors.New("bad request")
+	ErrInternal          = errors.New("internal server error")
+	ErrServiceUnavailable = errors.New("service unavailable")
 )
 
 type AppError struct {
@@ -57,4 +58,8 @@ func BadRequest(message string) *AppError {
 
 func Internal(message string, err error) *AppError {
 	return NewAppError("INTERNAL_ERROR", message, err)
+}
+
+func ServiceUnavailable(message string) *AppError {
+	return NewAppError("SERVICE_UNAVAILABLE", message, ErrServiceUnavailable)
 }

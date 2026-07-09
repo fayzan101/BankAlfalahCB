@@ -6,3 +6,10 @@ server:
 jwt:
   secret: change-me-in-production
   expiry: 24h
+
+openai:
+  api_key: ""
+  model: gpt-4o-mini
+  max_tokens: 512
+  timeout: 30s
+  max_history_messages: 20
