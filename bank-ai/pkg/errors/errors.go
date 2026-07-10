@@ -13,6 +13,7 @@ var (
 	ErrBadRequest        = errors.New("bad request")
 	ErrInternal          = errors.New("internal server error")
 	ErrServiceUnavailable = errors.New("service unavailable")
+	ErrTooManyRequests    = errors.New("too many requests")
 )
 
 type AppError struct {
@@ -62,4 +63,8 @@ func Internal(message string, err error) *AppError {
 
 func ServiceUnavailable(message string) *AppError {
 	return NewAppError("SERVICE_UNAVAILABLE", message, ErrServiceUnavailable)
+}
+
+func TooManyRequests(message string) *AppError {
+	return NewAppError("TOO_MANY_REQUESTS", message, ErrTooManyRequests)
 }

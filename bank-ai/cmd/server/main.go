@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 	"bank-ai-chatbot/internal/api"
 	"bank-ai-chatbot/internal/api/handlers"
 	"bank-ai-chatbot/internal/api/middleware"
+	"bank-ai-chatbot/internal/audit"
 	"bank-ai-chatbot/internal/config"
 	"bank-ai-chatbot/internal/repository/postgres"
 	"bank-ai-chatbot/internal/security"
@@ -37,6 +39,12 @@ func main() {
 	if err := os.Setenv("DATABASE_URL", cfg.Database.URL); err != nil {
 		log.Fatalf("set DATABASE_URL: %v", err)
 	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+	auditLogger := audit.NewLogger(logger)
 
 	ctx := context.Background()
 	db, err := postgres.NewDB(ctx)
@@ -65,15 +73,15 @@ func main() {
 			cfg.OpenAI.Timeout,
 		)
 		llmService = services.NewLLMService(openaiClient, cfg.OpenAI.MaxHistoryMessages)
-		log.Printf("openai integration enabled (model=%s)", cfg.OpenAI.Model)
+		logger.Info("openai integration enabled", "model", cfg.OpenAI.Model)
 	} else {
-		log.Println("OPENAI_API_KEY not set; chat messages will return service unavailable")
+		logger.Warn("OPENAI_API_KEY not set; general chat messages will return service unavailable")
 	}
 
 	chatService := services.NewChatService(chatRepo, messageRepo, bankingService, llmService, llmEnabled)
 
 	healthHandler := handlers.NewHealthHandler(db.Pool)
-	deps := api.BuildDependencies(healthHandler, authService, chatService, bankingService, authMW)
+	deps := api.BuildDependencies(cfg, logger, auditLogger, healthHandler, authService, chatService, bankingService, authMW)
 	router := api.NewRouter(deps)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -85,7 +93,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("server listening on %s", addr)
+		logger.Info("server listening", "addr", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
@@ -98,7 +106,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	log.Println("shutting down server...")
+	logger.Info("shutting down server")
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("shutdown error: %v", err)
 	}

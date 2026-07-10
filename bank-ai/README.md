@@ -108,3 +108,14 @@ Environment overrides:
 - `JWT_EXPIRY` — token expiry (e.g. `24h`)
 - `OPENAI_API_KEY` — OpenAI API key
 - `OPENAI_MODEL` — model name (default `gpt-4o-mini`)
+- `CORS_ALLOWED_ORIGINS` — comma-separated origins (default `*`)
+- `RATE_LIMIT_IP_PER_MINUTE` — public IP rate limit (default `60`)
+- `RATE_LIMIT_USER_PER_MINUTE` — authenticated user rate limit (default `120`)
+
+## Operational features (Phase 6)
+
+- Structured JSON request logs with method, path, status, latency, and `X-Request-ID`
+- IP rate limiting on all routes; per-user rate limiting on authenticated routes (`429` when exceeded)
+- Audit logs for register/login and banking balance/transaction reads
+- Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control`)
+- CORS support for browser clients
