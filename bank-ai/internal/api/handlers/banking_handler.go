@@ -4,17 +4,20 @@ import (
 	"net/http"
 	"strconv"
 
+	"bank-ai-chatbot/internal/audit"
 	"bank-ai-chatbot/internal/services"
 	apperrors "bank-ai-chatbot/pkg/errors"
 	"bank-ai-chatbot/pkg/response"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 type BankingHandler struct {
 	banking *services.BankingService
+	audit   *audit.Logger
 }
 
-func NewBankingHandler(banking *services.BankingService) *BankingHandler {
-	return &BankingHandler{banking: banking}
+func NewBankingHandler(banking *services.BankingService, auditLogger *audit.Logger) *BankingHandler {
+	return &BankingHandler{banking: banking, audit: auditLogger}
 }
 
 func (h *BankingHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +33,7 @@ func (h *BankingHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.audit.BankingBalance(userID, chimiddleware.GetReqID(r.Context()), r.RemoteAddr)
 	response.JSON(w, http.StatusOK, result)
 }
 
@@ -56,5 +60,6 @@ func (h *BankingHandler) GetTransactions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	h.audit.BankingTransactions(userID, chimiddleware.GetReqID(r.Context()), r.RemoteAddr, limit)
 	response.JSON(w, http.StatusOK, result)
 }

@@ -5,19 +5,22 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"bank-ai-chatbot/internal/audit"
 	"bank-ai-chatbot/internal/dto"
 	"bank-ai-chatbot/internal/services"
 	apperrors "bank-ai-chatbot/pkg/errors"
 	"bank-ai-chatbot/pkg/response"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
-	auth *services.AuthService
+	auth  *services.AuthService
+	audit *audit.Logger
 }
 
-func NewAuthHandler(auth *services.AuthService) *AuthHandler {
-	return &AuthHandler{auth: auth}
+func NewAuthHandler(auth *services.AuthService, auditLogger *audit.Logger) *AuthHandler {
+	return &AuthHandler{auth: auth, audit: auditLogger}
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -28,11 +31,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.auth.Register(r.Context(), req)
+	requestID := chimiddleware.GetReqID(r.Context())
 	if err != nil {
+		h.audit.AuthRegister(uuid.Nil, req.Email, requestID, r.RemoteAddr, false)
 		response.Error(w, err)
 		return
 	}
 
+	userID, _ := uuid.Parse(result.User.ID)
+	h.audit.AuthRegister(userID, result.User.Email, requestID, r.RemoteAddr, true)
 	response.JSON(w, http.StatusCreated, result)
 }
 
@@ -44,11 +51,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.auth.Login(r.Context(), req)
+	requestID := chimiddleware.GetReqID(r.Context())
 	if err != nil {
+		h.audit.AuthLogin(uuid.Nil, req.Email, requestID, r.RemoteAddr, false)
 		response.Error(w, err)
 		return
 	}
 
+	userID, _ := uuid.Parse(result.User.ID)
+	h.audit.AuthLogin(userID, result.User.Email, requestID, r.RemoteAddr, true)
 	response.JSON(w, http.StatusOK, result)
 }
 
